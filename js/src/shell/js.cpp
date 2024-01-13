@@ -2876,6 +2876,36 @@ static bool PutStr(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
+static bool MyWriteBytes(JSContext* cx, unsigned argc, Value* vp) {
+  CallArgs args = CallArgsFromVp(argc, vp);
+
+  if (!gOutFile->isOpen()) {
+    JS_ReportErrorASCII(cx, "Output file is closed");
+    return false;
+  }
+
+  // TODO: Add propper check if this is what we want
+  // This thing not working if pass here DataView
+
+  //  if (args.length() != 1 || !args[0].isObject() || !args[0].toObject().is<TypedArrayObject>()) {
+  //   JS_ReportErrorASCII(cx, "Expected a single argument of type TypedArray");
+  //   return false;
+  // }
+
+  RootedObject bufferObj(cx, &args[0].toObject().as<TypedArrayObject>());
+  if (!bufferObj) {
+    return false;
+  }
+
+  const uint8_t* data = bufferObj->as<TypedArrayObject>().elements();
+  size_t size = bufferObj->as<TypedArrayObject>().length();
+  fwrite(data, size, sizeof(uint8_t), gOutFile->fp);
+
+  fflush(gOutFile->fp);
+  args.rval().setUndefined();
+  return true;
+}
+
 static bool Now(JSContext* cx, unsigned argc, Value* vp) {
   CallArgs args = CallArgsFromVp(argc, vp);
   double now = PRMJ_Now() / double(PRMJ_USEC_PER_MSEC);
@@ -8793,6 +8823,10 @@ static const JSFunctionSpecWithHelp shell_functions[] = {
     JS_FN_HELP("putstr", PutStr, 0, 0,
 "putstr([exp])",
 "  Evaluate and print expression without newline."),
+
+    JS_FN_HELP("writebytes", MyWriteBytes, 0, 0,
+"writebytes(DataView)",
+" Dump bytes of DataView to stdout"),
 
     JS_FN_HELP("dateNow", Now, 0, 0,
 "dateNow()",
